@@ -32,6 +32,7 @@ pub struct Database {
 #[allow(unused)]
 pub struct Grpc {
     pub event_admission_server: Option<String>,
+    pub restricts_write: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -287,6 +288,7 @@ impl Default for Settings {
             },
             grpc: Grpc {
                 event_admission_server: None,
+                restricts_write: false,
             },
             network: Network {
                 port: 8080,
@@ -320,7 +322,7 @@ impl Default for Settings {
                 node_url: "".to_string(),
                 api_secret: "".to_string(),
                 sign_ups: false,
-                direct_message: true,
+                direct_message: false,
                 secret_key: None,
                 processor: Processor::LNBits,
             },
