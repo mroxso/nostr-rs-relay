@@ -194,6 +194,21 @@ async fn handle_web_request(
                     .unwrap());
             }
 
+            if let Some(relay_file_path) = settings.info.relay_page {
+                match file_bytes(&relay_file_path) {
+                    Ok(file_content) => {
+                        return Ok(Response::builder()
+                            .status(200)
+                            .header("Content-Type", "text/html; charset=UTF-8")
+                            .body(Body::from(file_content))
+                            .expect("request builder"));
+                    },
+                    Err(err) => {
+                        error!("Failed to read relay_page file: {}. Will use default", err);
+                    }
+                }
+            }
+
             Ok(Response::builder()
                 .status(200)
                 .header("Content-Type", "text/plain")
@@ -582,6 +597,11 @@ async fn handle_web_request(
                     .unwrap());
             }
 
+            // Account is checked async so user will have to refresh the page a couple times after
+            // they have paid.
+            if let Err(e) = payment_tx.send(PaymentMessage::CheckAccount(pubkey.clone())) {
+                warn!("Could not check account: {}", e);
+            }
             // Checks if user is already admitted
             let text =
                 if let Ok((admission_status, _)) = repo.get_account_balance(&key.unwrap()).await {
@@ -919,11 +939,17 @@ pub fn start_server(settings: &Settings, shutdown_rx: MpscReceiver<()>) -> Resul
                 bcast_tx.clone(),
                 settings.clone(),
             );
-            if let Ok(mut p) = payment_opt {
-                tokio::task::spawn(async move {
-                    info!("starting payment process ...");
-                    p.run().await;
-                });
+            match payment_opt {
+                Ok(mut p) => {
+                    tokio::task::spawn(async move {
+                        info!("starting payment process ...");
+                        p.run().await;
+                    });
+                },
+                Err(e) => {
+                    error!("Failed to start payment process {e}");
+                    std::process::exit(1);
+                }
             }
         }
 
